@@ -20,43 +20,38 @@ def reverse_seq(seq):
 def fasta_to_dict(path):
 	ret_dict = SeqIO.to_dict(SeqIO.parse(path, "fasta"))
 	ret_dict = {k:reverse_seq(v) for k, v in ret_dict.items()}
-	ret_dict = {k:v.seq for k, v in ret_dict.items()}
+	ret_dict = {k:str(v.seq) for k, v in ret_dict.items()}
 	return(ret_dict)
-
-def read_guides_table(path):
-	guides = {}
-	with open(path, 'r') as csvfile:
-		table_reader = csv.DictReader(csvfile, delimiter=',', quotechar='"')
-		for row in table_reader:
-			guides[row["Barcode name"]]= row["ID plasmid sequence"]
-	return(guides)
 
 def find_hash_position(sequence, tags):
 	for key, value in tags.items():
 		position = sequence.find(value)
 		if position != -1:
 			return (key, position)
-	return ("none", -1)
+	return("none", -1)
 
-def find_plasmid_positions(sequence, forward_dict, reverse_dict, plasmids, orientation):
+
+def find_primer_positions(sequence, forward_dict, reverse_dict):
 	fw_name, fw_pos = find_hash_position(sequence, forward_dict)
 	rv_name, rv_pos = find_hash_position(sequence, reverse_dict)
-	pl_name, pl_pos = find_hash_position(sequence, plasmids)
+	return([fw_pos, fw_name, rv_pos, rv_name])
 
-	if(fw_pos + rv_pos + pl_pos == -3 ):
-		orientation = "."
-
-	return ([fw_name, str(fw_pos), rv_name, str(rv_pos), pl_name,str(pl_pos), orientation])
-
-
-
-def get_sequence_counts(fq):
+def get_sequence_counts(fq, forward_dict, reverse_dict):
 	fw_f = fq
 	ret = defaultdict(int)
 	with gzip.open(fw_f, "rt") as r1:
 		for fw in SeqIO.parse(r1, "fastq") :
 			str_seq = str(fw.seq)
-			ret[str_seq] += 1
+			fw_pos, fw_name, rv_pos, rv_pos = find_primer_positions(str_seq, forward_dict, reverse_dict)
+			orientation = "+"
+			if(fw_pos == -1 or rv_pos == -1):
+				str_seq = str(fw.seq.reverse_complement())
+				fw_pos, fw_name, rv_pos, rv_name = find_primer_positions(str_seq, forward_dict, reverse_dict)
+				orientation = "-"
+			if(fw_pos == -1 and rv_pos == -1):
+				orientation = "-"
+			else:
+				ret[str_seq] += 1
 	return ret
 
 def write_raw_counts(fq, output_prefix, forward_dict, reverse_dict, guides):
@@ -67,12 +62,10 @@ def write_raw_counts(fq, output_prefix, forward_dict, reverse_dict, guides):
 		#seqs = 
 		for fw in SeqIO.parse(r1, "fastq") :
 			str_seq = str(fw.seq)
-
 			# values = find_plasmid_positions(str_seq, forward_dict, reverse_dict, plasmids, "+")	 
 			# if values[6] == ".":
 			# 	str_seq = str(fw.seq.reverse_complement())
 			# 	values = find_plasmid_positions(str_seq, forward_dict, reverse_dict, plasmids, "-")
-
 			# f3.write(",".join(values)) 
 			# f3.write("\n")
 
@@ -87,8 +80,9 @@ def usage():
 
 
 def main(argv):
+	minimum_coverage = 200
 	try: 
-		opts, args = getopt.getopt(argv,'g:p:s:o:f:r:h', ['guides=','primers=','sequences=', 'output_prefix=','forward=','reverse=','help'])
+		opts, args = getopt.getopt(argv,'g:p:s:o:f:r:m:h', ['guides=','primers=','sequences=', 'output_prefix=','forward=','reverse=','minimum_coverage=','help'])
 	except getopt.GetOptError:
 		usage()
 		sys.exit(2)
@@ -118,10 +112,14 @@ def main(argv):
 			print(arg)
 		elif opt in ('o', '--output_prefix'):
 			output_prefix = arg
+		elif opt in ('m', '--minimum_coverage'):
+			minimum_coverage = imt(arg)
 
-	sequences = get_sequence_counts(sequences_path)
+	sequences = get_sequence_counts(sequences_path, forward_dict, reverse_dict)
 	for k, v in sequences.items():
-		if v >1:
+		if v > minimum_coverage:
+			fw_pos, fw_name, rv_pos, rv_name = find_primer_positions(k, forward_dict, reverse_dict)
+			print(fw_pos, fw_name, rv_pos, rv_name )
 			print(v)
 			print(k)
 		#print("\n")
