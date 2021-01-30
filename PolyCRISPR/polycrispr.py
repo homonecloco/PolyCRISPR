@@ -12,25 +12,6 @@ from Bio.Seq import Seq
 from .amplicon import Amplicon
 from .amplicon_reads import AmpliconReads
 
-
-def get_sequence_counts(fq, forward_dict, reverse_dict):
-	fw_f = fq
-	ret = defaultdict(int)
-	with gzip.open(fw_f, "rt") as r1:
-		for fw in SeqIO.parse(r1, "fastq") :
-			str_seq = str(fw.seq)
-			fw_pos, fw_name, rv_pos, rv_pos = find_primer_positions(str_seq, forward_dict, reverse_dict)
-			orientation = "+"
-			if(fw_pos == -1 or rv_pos == -1):
-				str_seq = str(fw.seq.reverse_complement())
-				fw_pos, fw_name, rv_pos, rv_name = find_primer_positions(str_seq, forward_dict, reverse_dict)
-				orientation = "-"
-			if(fw_pos == -1 and rv_pos == -1):
-				orientation = "-"
-			else:
-				ret[str_seq] += 1
-	return ret
-
 def write_raw_counts(fq, output_prefix, forward_dict, reverse_dict, guides):
 	fw_f = fq
 	distances_f = output_prefix + "_amplicons.txt"
@@ -46,11 +27,6 @@ def write_raw_counts(fq, output_prefix, forward_dict, reverse_dict, guides):
 			# f3.write(",".join(values)) 
 			# f3.write("\n")
 
-def write_summary(output_prefix):
-	distances_f = output_prefix + "_distances_merge.txt"
-	df = pd.read_csv(distances_f)
-	summ=df[['fw_name', 'rev_name', 'pl_name', 'pl_pos']].groupby(['fw_name', 'rev_name', 'pl_name']).agg( ['count','mean'])
-	summ.to_csv(output_prefix + "summary_merge.csv", sep=',')
 
 def parse_arguments():
 	parser = argparse.ArgumentParser()
@@ -74,18 +50,12 @@ def main():
 	args = parse_arguments()
 	print("IN MAIN")
 	ar = AmpliconReads(args.forward, args.reverse, args.guides)
-
-	# sequences = get_sequence_counts(sequences_path, forward_dict, reverse_dict)
-	# for k, v in sequences.items():
-	# 	if v > minimum_coverage:
-	# 		fw_pos, fw_name, rv_pos, rv_name = find_primer_positions(k, forward_dict, reverse_dict)
-	# 		print(fw_pos, fw_name, rv_pos, rv_name )
-	# 		print(v)
-	# 		print(k)
-		#print("\n")
-
-	#write_raw_counts(sequences_path, output_prefix, forward_dict, reverse_dict, plamids_dict)
-	#write_summary(output_prefix)
+	counts = ar.amplicon_counts(args.sequences)
+	for(k, v ) in counts.items():
+		if v.count > args.minimum_coverage:
+			#print(k)
+			print(v)
+	
 
 if __name__ == '__main__':
 	main()

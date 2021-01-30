@@ -13,7 +13,7 @@ class Amplicon():
 		self.reorient()
 
 	def oriented_sequence(self):
-		seq = self.sequence()
+		seq = self.sequence
 		if(self.orientation == "-"):
 			seq = self.sequence.reverse_complement()
 		return(seq)
@@ -27,8 +27,8 @@ class Amplicon():
 		return(None, -1)
 
 	def find_primer_positions(self):
-		self.fw_name, self.fw_pos = find_hash_position(forward_dict)
-		self.rv_name, self.rv_pos = find_hash_position(reverse_dict)
+		self.fw_name, self.fw_pos = self.find_hash_position(self.forward_dict)
+		self.rv_name, self.rv_pos = self.find_hash_position(self.reverse_dict)
 
 	def reorient(self):
 		#This methods sets the orientation to where both primers are found.
@@ -40,6 +40,13 @@ class Amplicon():
 			self.orientation = "."
 			self.find_primer_positions()
 
+	def __str__(self):
+		return ("\t".join([
+			str(self.oriented_sequence()), 
+			str(self.count),
+			str(self.fw_name), 
+			str(self.rv_name)])
+		)
 
 
 
