@@ -1,5 +1,7 @@
 from Bio import SeqIO
 from Bio.Seq import Seq
+from Bio import Align
+
 import gzip
 from .amplicon import Amplicon
 
@@ -18,16 +20,21 @@ def fasta_to_dict(path):
 	return(ret_dict)
 
 class AmpliconReads():
-	def __init__(self, forward, reverse, guides):
+	def __init__(self, forward, reverse, guides, reference):
 		self.guides = fasta_to_dict(guides)
 		self.reverse = fasta_to_dict(reverse)
 		self.forward = fasta_to_dict(forward)
+		self.references = SeqIO.to_dict(SeqIO.parse(reference, "fasta"))
+		self.aligner = Align.PairwiseAligner()
+
+	def setup_amplicons(self):
+		pass
 
 	def amplicon_counts(self,fq):
 		ret = dict()
 		with gzip.open(fq, "rt") as r1:
 			for fw in SeqIO.parse(r1, "fastq"):
-				amplicon = Amplicon(fw.seq, self.forward, self.reverse, self.guides)
+				amplicon = Amplicon(fw.seq, self)
 				if amplicon.orientation == ".":
 					next
 				str_seq  = str(amplicon.oriented_sequence())
@@ -35,7 +42,7 @@ class AmpliconReads():
 					ret[str_seq] = amplicon
 				ret[str_seq].count += 1
 #		print(ret)		
-		self._amplicon_counts=ret
+		self._amplicon=ret
 		return ret
 
 
